@@ -59,7 +59,7 @@ for (file <- filesHere if file.getName.endsWith(".scala")) // ifを使って、�
 // 次のコードも同様だが、これは命令形言語っぽい
 for (file <- filesHere)
     if (file.getName.endsWith(".scala"))
-        println(file)
+
 // forは式であり、意味のある値を返す。その値は、for式の<-節で型が決まるコレクションである
 // 複数のフィルタを使うには、フィルタを羅列する
 for (
@@ -67,3 +67,57 @@ for (
      if file.isFile
      if file.getName.endsWith(".scala")
 ) println(file)
+
+// 複数の<-節を追加すると、ループを入れ子にできる
+def fileLines(file: java.io.File) = scala.io.Source.fromFile(file).getLines().toList // ファイルを読み込む関数
+def grep(pattern: String) =
+    for (
+         file <- filesHere
+         if file.getName.endsWith(".scala"); // 多重のループの区別のためにセミコロンが必要。ジェネレータとフィルタを中括弧で囲むことで省略可(次のコードを参照)
+         line <- fileLines(file)
+         if line.trim.matches(pattern)
+    ) println(file + ": " + line.trim)
+grep(".*gcd.*")
+
+// 一つ前のコードでは、line.trimという式を繰り返している。ループの中で無視できるコストでは無いので、この処理を一回に減らす。
+// for式の中で、=を使って新しい変数に結果地を束縛(bind)することができる（スコープはfor式の中だけでありvalである）
+def grep2(pattern: String) =
+    for {
+        file <- filesHere
+        if file.getName.endsWith(".scala")
+        line <- fileLines(file)
+        trimmed = line.trim
+        if trimmed.matches(pattern)
+    } println(file + ": " + trimmed)
+grep2(".*gcd.*")
+
+// for式の実行結果から、新しいコレクションを作り出す
+// whileループと違い、for式は値を返すことができる.コレクションの型は推論される（この場合はArray[File])
+def scalaFiles =
+    for {
+        file <- filesHere
+        if file.getName.endsWith(".scala")
+    } yield {file}
+for( file <- scalaFiles ) println(file.getName) // scalaFilesで作成されたコレクションを出力
+
+/*
+    for yield構文は、yieldをfor式の処理ブロックの前に置かなくてはいけない。なので、次の書き方はエラーになる
+    for (file <- filesHere if file.getName.endsWith(".scala") ){
+        yield file // ブロックの中括弧の前に書かなくてはいけないので、エラー！
+    }
+    これはOK
+    for (file <- filesHere if file.getName.endsWith(".scala") ) yield {
+        file
+    }
+*/
+
+// カレントディレクトリの全ファイルを格納したfilesHereから、各ファイルの「for」という文字列を含んでいる行の長さの配列に変換する
+val forLineLengthes = 
+    for {
+        file <- filesHere
+        if file.getName.endsWith(".scala")
+        line <- fileLines(file)
+        trimmed = line.trim
+        if trimmed.matches(".*for.*")
+    } yield trimmed.length
+for ( length <- forLineLengthes ) println(length)
